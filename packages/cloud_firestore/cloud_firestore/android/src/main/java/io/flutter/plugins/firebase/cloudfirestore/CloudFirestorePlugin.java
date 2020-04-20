@@ -464,7 +464,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
         new OnFailureListener() {
           @Override
           public void onFailure(@NonNull Exception e) {
-            result.error("Error performing " + description, e.getMessage(), null);
+            reportException(result, e);
           }
         });
   }
@@ -583,8 +583,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                     @Override
                     public void onComplete(Task<TransactionResult> task) {
                       if (!task.isSuccessful()) {
-                        result.error(
-                            "Error performing transaction", task.getException().getMessage(), null);
+                        reportException(result, task.getException());
                         return;
                       }
 
@@ -592,10 +591,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                       if (transactionResult.exception == null) {
                         result.success(transactionResult.result);
                       } else {
-                        result.error(
-                            "Error performing transaction",
-                            transactionResult.exception.getMessage(),
-                            null);
+                        reportException(result, transactionResult.exception);
                       }
                     }
                   });
@@ -634,7 +630,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                     new Runnable() {
                       @Override
                       public void run() {
-                        result.error("Error performing Transaction#get", e.getMessage(), null);
+                        reportException(result, e);
                       }
                     });
               }
@@ -666,7 +662,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                     new Runnable() {
                       @Override
                       public void run() {
-                        result.error("Error performing Transaction#update", e.getMessage(), null);
+                        reportException(result, e);
                       }
                     });
               }
@@ -698,7 +694,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                     new Runnable() {
                       @Override
                       public void run() {
-                        result.error("Error performing Transaction#set", e.getMessage(), null);
+                        reportException(result, e);
                       }
                     });
               }
@@ -728,7 +724,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                     new Runnable() {
                       @Override
                       public void run() {
-                        result.error("Error performing Transaction#delete", e.getMessage(), null);
+                        reportException(result, e);
                       }
                     });
               }
@@ -852,7 +848,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                   new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                      result.error("Error performing getDocuments", e.getMessage(), null);
+                      reportException(result, e);
                     }
                   });
           break;
@@ -913,7 +909,7 @@ public class CloudFirestorePlugin implements MethodCallHandler, FlutterPlugin, A
                   new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                      result.error("Error performing get", e.getMessage(), null);
+                      reportException(result, e);
                     }
                   });
           break;
@@ -1084,5 +1080,24 @@ final class FirestoreMessageCodec extends StandardMessageCodec {
     String sourceType = source.getClass().getCanonicalName();
     String message = "java.util.List was expected, unable to convert '%s' to an object array";
     throw new IllegalArgumentException(String.format(message, sourceType));
+  }
+
+  private void reportException(Result result, @Nullable Exception exception) {
+    if (exception != null) {
+      if (exception instanceof FirebaseFirestoreException) {
+        final FirebaseFirestoreException firestoreException = (FirebaseFirestoreException) exception;
+        result.error(firestoreException.getErrorCode(), exception.getMessage(), null);
+      } else if (exception instanceof FirebaseApiNotAvailableException) {
+        result.error("ERROR_API_NOT_AVAILABLE", exception.getMessage(), null);
+      } else if (exception instanceof FirebaseTooManyRequestsException) {
+        result.error("ERROR_TOO_MANY_REQUESTS", exception.getMessage(), null);
+      } else if (exception instanceof FirebaseNetworkException) {
+        result.error("ERROR_NETWORK_REQUEST_FAILED", exception.getMessage(), null);
+      } else {
+        result.error(exception.getClass().getSimpleName(), exception.getMessage(), null);
+      }
+    } else {
+      result.error("ERROR_UNKNOWN", "An unknown error occurred.", null);
+    }
   }
 }
